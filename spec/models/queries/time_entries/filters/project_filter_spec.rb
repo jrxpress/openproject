@@ -28,34 +28,36 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class TimeEntryActivity < Enumeration
-  has_many :time_entries, foreign_key: 'activity_id'
+require 'spec_helper'
 
-  OptionName = :enumeration_activities
+describe Queries::TimeEntries::Filters::ProjectFilter, type: :model do
+  let(:project1) { FactoryGirl.build_stubbed(:project) }
+  let(:project2) { FactoryGirl.build_stubbed(:project) }
 
-  def option_name
-    OptionName
+  before do
+    allow(Project)
+      .to receive_message_chain(:visible, :pluck)
+      .with(:id)
+      .and_return([project1.id, project2.id])
   end
 
-  def objects_count
-    time_entries.count
+  it_behaves_like 'basic query filter' do
+    let(:class_key) { :project_id }
+    let(:type) { :list_optional }
+    let(:name) { TimeEntry.human_attribute_name(:project) }
+
+    describe '#allowed_values' do
+      it 'is a list of the possible values' do
+        expected = [[project1.id, project1.id.to_s], [project2.id, project2.id.to_s]]
+
+        expect(instance.allowed_values).to match_array(expected)
+      end
+    end
   end
 
-  def transfer_relations(to)
-    time_entries.update_all("activity_id = #{to.id}")
-  end
-
-  def activated_projects
-    scope = Project.all
-
-    scope = if active?
-              scope
-                .where.not(id: children.select(:project_id))
-            else
-              scope
-                .where('1=0')
-            end
-
-    scope.or(Project.where(id: children.where(active: true).select(:project_id)))
+  it_behaves_like 'list_optional query filter' do
+    let(:attribute) { :project_id }
+    let(:model) { TimeEntry }
+    let(:valid_values) { [project1.id.to_s] }
   end
 end

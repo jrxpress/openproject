@@ -1,5 +1,3 @@
-#-- encoding: UTF-8
-
 #-- copyright
 # OpenProject is a project management system.
 # Copyright (C) 2012-2017 the OpenProject Foundation (OPF)
@@ -28,34 +26,38 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class TimeEntryActivity < Enumeration
-  has_many :time_entries, foreign_key: 'activity_id'
+module API
+  module V3
+    module TimeEntries
+      class TimeEntriesActivityAPI < ::API::OpenProjectAPI
+        resources :activities do
+          params do
+            requires :id, desc: 'Time entries activity\'s id'
+          end
 
-  OptionName = :enumeration_activities
+          route_param :id do
+            before do
+              authorize_any(%i(log_time
+                               view_time_entries
+                               edit_time_entries
+                               edit_own_time_entries
+                               manage_project_activities), global: true) do
+                raise API::Errors::NotFound.new
+              end
 
-  def option_name
-    OptionName
-  end
-
-  def objects_count
-    time_entries.count
-  end
-
-  def transfer_relations(to)
-    time_entries.update_all("activity_id = #{to.id}")
-  end
-
-  def activated_projects
-    scope = Project.all
-
-    scope = if active?
-              scope
-                .where.not(id: children.select(:project_id))
-            else
-              scope
-                .where('1=0')
+              @activity = TimeEntryActivity
+                          .shared
+                          .find(params[:id])
             end
 
-    scope.or(Project.where(id: children.where(active: true).select(:project_id)))
+            get do
+              TimeEntriesActivityRepresenter.new(@activity,
+                                                 current_user: current_user,
+                                                 embed_links: true)
+            end
+          end
+        end
+      end
+    end
   end
 end

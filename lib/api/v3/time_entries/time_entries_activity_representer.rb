@@ -28,34 +28,48 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class TimeEntryActivity < Enumeration
-  has_many :time_entries, foreign_key: 'activity_id'
+module API
+  module V3
+    module TimeEntries
+      class TimeEntriesActivityRepresenter < ::API::Decorators::Single
+        include API::Decorators::LinkedResource
 
-  OptionName = :enumeration_activities
+        self_link
 
-  def option_name
-    OptionName
-  end
+        property :id
 
-  def objects_count
-    time_entries.count
-  end
+        property :name
 
-  def transfer_relations(to)
-    time_entries.update_all("activity_id = #{to.id}")
-  end
+        property :position
 
-  def activated_projects
-    scope = Project.all
+        property :is_default,
+                 as: :default
 
-    scope = if active?
-              scope
-                .where.not(id: children.select(:project_id))
-            else
-              scope
-                .where('1=0')
-            end
+        associated_resources :projects,
+                             link: ->(*) {
+                               active_projects.map do |project|
+                                 {
+                                   href: api_v3_paths.project(project.identifier),
+                                   title: project.name
+                                 }
+                               end
+                             },
+                             getter: ->(*) {
+                               active_projects.map do |project|
+                                 Projects::ProjectRepresenter.new(project, current_user: current_user)
+                               end
+                             }
 
-    scope.or(Project.where(id: children.where(active: true).select(:project_id)))
+        def _type
+          'TimeEntriesActivity'
+        end
+
+        def active_projects
+          represented
+            .activated_projects
+            .visible
+        end
+      end
+    end
   end
 end

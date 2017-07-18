@@ -28,34 +28,19 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class TimeEntryActivity < Enumeration
-  has_many :time_entries, foreign_key: 'activity_id'
-
-  OptionName = :enumeration_activities
-
-  def option_name
-    OptionName
+class Queries::TimeEntries::Filters::WorkPackageFilter < Queries::TimeEntries::Filters::TimeEntryFilter
+  def allowed_values
+    @allowed_values ||= begin
+      # We don't care for the first value as we do not display the values visibly
+      ::WorkPackage.visible.pluck(:id).map { |id| [id, id.to_s] }
+    end
   end
 
-  def objects_count
-    time_entries.count
+  def type
+    :list_optional
   end
 
-  def transfer_relations(to)
-    time_entries.update_all("activity_id = #{to.id}")
-  end
-
-  def activated_projects
-    scope = Project.all
-
-    scope = if active?
-              scope
-                .where.not(id: children.select(:project_id))
-            else
-              scope
-                .where('1=0')
-            end
-
-    scope.or(Project.where(id: children.where(active: true).select(:project_id)))
+  def self.key
+    :work_package_id
   end
 end

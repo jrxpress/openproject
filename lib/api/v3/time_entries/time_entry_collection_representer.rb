@@ -28,34 +28,12 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class TimeEntryActivity < Enumeration
-  has_many :time_entries, foreign_key: 'activity_id'
-
-  OptionName = :enumeration_activities
-
-  def option_name
-    OptionName
-  end
-
-  def objects_count
-    time_entries.count
-  end
-
-  def transfer_relations(to)
-    time_entries.update_all("activity_id = #{to.id}")
-  end
-
-  def activated_projects
-    scope = Project.all
-
-    scope = if active?
-              scope
-                .where.not(id: children.select(:project_id))
-            else
-              scope
-                .where('1=0')
-            end
-
-    scope.or(Project.where(id: children.where(active: true).select(:project_id)))
+module API
+  module V3
+    module TimeEntries
+      class TimeEntryCollectionRepresenter < ::API::Decorators::OffsetPaginatedCollection
+        element_decorator ::API::V3::TimeEntries::TimeEntryRepresenter
+      end
+    end
   end
 end
